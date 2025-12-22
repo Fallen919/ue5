@@ -1,0 +1,23 @@
+# Unreal generated folders
+Binaries/
+DerivedDataCache/
+Intermediate/
+Saved/
+build/
+
+# Unreal assets (code-only repo: do NOT upload Content)
+Content/
+*.uasset
+*.umap
+
+# VS / Rider / IDE stuff
+.vs/
+*.suo
+*.user
+*.userprefs
+*.VC.db
+*.VC.opendb
+
+# Logs / temp
+*.log
+*.tmp
