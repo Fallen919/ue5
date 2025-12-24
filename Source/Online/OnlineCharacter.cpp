@@ -10,32 +10,31 @@
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "InputActionValue.h"
-#include"Kismet/GameplayStatics.h"
-#include"OnlineSubsystem.h"
-#include"OnlineSessionSettings.h"
+#include "Kismet/GameplayStatics.h"
+#include "OnlineSubsystem.h"
+#include "OnlineSessionSettings.h"
+#include "PauseMenu.h"
 #include <Online/OnlineSessionNames.h>
-
 
 DEFINE_LOG_CATEGORY(LogTemplateCharacter);
 
 //////////////////////////////////////////////////////////////////////////
 // AOnlineCharacter
 
-AOnlineCharacter::AOnlineCharacter():
-CreateSessionCompleteDelegate(FOnCreateSessionCompleteDelegate::CreateUObject(this,&ThisClass::OnCreateSessionComplete)),
-FindSessionsCompleteDelegate(FOnFindSessionsCompleteDelegate::CreateUObject(this, &ThisClass::OnFindSessionsComplete)),
-JoinSessionCompleteDelegate(FOnJoinSessionCompleteDelegate::CreateUObject(this, &ThisClass::OnJoinSessionComplete))
+AOnlineCharacter::AOnlineCharacter() : CreateSessionCompleteDelegate(FOnCreateSessionCompleteDelegate::CreateUObject(this, &ThisClass::OnCreateSessionComplete)),
+									   FindSessionsCompleteDelegate(FOnFindSessionsCompleteDelegate::CreateUObject(this, &ThisClass::OnFindSessionsComplete)),
+									   JoinSessionCompleteDelegate(FOnJoinSessionCompleteDelegate::CreateUObject(this, &ThisClass::OnJoinSessionComplete))
 {
 	// Set size for collision capsule
 	GetCapsuleComponent()->InitCapsuleSize(42.f, 96.0f);
-		
+
 	// Don't rotate when the controller rotates. Let that just affect the camera.
 	bUseControllerRotationPitch = false;
 	bUseControllerRotationYaw = false;
 	bUseControllerRotationRoll = false;
 
 	// Configure character movement
-	GetCharacterMovement()->bOrientRotationToMovement = true; // Character moves in the direction of input...	
+	GetCharacterMovement()->bOrientRotationToMovement = true;			 // Character moves in the direction of input...
 	GetCharacterMovement()->RotationRate = FRotator(0.0f, 500.0f, 0.0f); // ...at this rotation rate
 
 	// Note: For faster iteration times these variables, and many more, can be tweaked in the Character Blueprint
@@ -50,24 +49,23 @@ JoinSessionCompleteDelegate(FOnJoinSessionCompleteDelegate::CreateUObject(this, 
 	// Create a camera boom (pulls in towards the player if there is a collision)
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
 	CameraBoom->SetupAttachment(RootComponent);
-	CameraBoom->TargetArmLength = 400.0f; // The camera follows at this distance behind the character	
+	CameraBoom->TargetArmLength = 400.0f;		// The camera follows at this distance behind the character
 	CameraBoom->bUsePawnControlRotation = true; // Rotate the arm based on the controller
 
 	// Create a follow camera
 	FollowCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FollowCamera"));
 	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName); // Attach the camera to the end of the boom and let the boom adjust to match the controller orientation
-	FollowCamera->bUsePawnControlRotation = false; // Camera does not rotate relative to arm
+	FollowCamera->bUsePawnControlRotation = false;								// Camera does not rotate relative to arm
 
-	// Note: The skeletal mesh and anim blueprint references on the Mesh component (inherited from Character) 
+	// Note: The skeletal mesh and anim blueprint references on the Mesh component (inherited from Character)
 	// are set in the derived blueprint asset named ThirdPersonCharacter (to avoid direct content references in C++)
 
-
-	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
-	if(OnlineSubsystem)
+	IOnlineSubsystem *OnlineSubsystem = IOnlineSubsystem::Get();
+	if (OnlineSubsystem)
 	{
-		OnlineSessionInterface =OnlineSubsystem->GetSessionInterface();
+		OnlineSessionInterface = OnlineSubsystem->GetSessionInterface();
 
-		if(GEngine)
+		if (GEngine)
 		{
 			GEngine->AddOnScreenDebugMessage(-1, 15.f, FColor::Blue, FString::Printf(TEXT("Found subsystem %s"), *OnlineSubsystem->GetSubsystemName().ToString()));
 		}
@@ -76,29 +74,28 @@ JoinSessionCompleteDelegate(FOnJoinSessionCompleteDelegate::CreateUObject(this, 
 
 void AOnlineCharacter::BeginPlay()
 {
-	// Call the base class  
+	// Call the base class
 	Super::BeginPlay();
 }
 
-
 void AOnlineCharacter::OpenLobby()
 {
-	UWorld* World = GetWorld();
-	if(World)
+	UWorld *World = GetWorld();
+	if (World)
 	{
-		World->ServerTravel (FString("/Game/ThirdPerson/Maps/Lobby?listen"));
+		World->ServerTravel(FString("/Game/ThirdPerson/Maps/Lobby?listen"));
 	}
 }
 
-void AOnlineCharacter::CallOpenLevel(const FString& Address)
+void AOnlineCharacter::CallOpenLevel(const FString &Address)
 {
-	UGameplayStatics::OpenLevel(this, *Address );
+	UGameplayStatics::OpenLevel(this, *Address);
 }
 
-void AOnlineCharacter::CallClientTravel(const FString& Address)
+void AOnlineCharacter::CallClientTravel(const FString &Address)
 {
-	APlayerController* PlayerController = GetGameInstance()->GetFirstLocalPlayerController();
-	if(PlayerController)
+	APlayerController *PlayerController = GetGameInstance()->GetFirstLocalPlayerController();
+	if (PlayerController)
 	{
 		PlayerController->ClientTravel(Address, ETravelType::TRAVEL_Absolute);
 	}
@@ -106,13 +103,13 @@ void AOnlineCharacter::CallClientTravel(const FString& Address)
 
 void AOnlineCharacter::CreateGameSession()
 {
-	if(!OnlineSessionInterface.IsValid())
+	if (!OnlineSessionInterface.IsValid())
 	{
 		return;
 	}
 
 	auto ExistingSession = OnlineSessionInterface->GetNamedSession(NAME_GameSession);
-	if(ExistingSession!= nullptr)
+	if (ExistingSession != nullptr)
 	{
 		OnlineSessionInterface->DestroySession(NAME_GameSession);
 	}
@@ -128,13 +125,13 @@ void AOnlineCharacter::CreateGameSession()
 	SessionSettings->bUsesPresence = true;
 	SessionSettings->bUseLobbiesIfAvailable = true;
 	SessionSettings->Set(FName("MatchType"), FString("FreeForAll"), EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
-	const ULocalPlayer* LocalPlayer = GetWorld()->GetFirstLocalPlayerFromController();
+	const ULocalPlayer *LocalPlayer = GetWorld()->GetFirstLocalPlayerFromController();
 	OnlineSessionInterface->CreateSession(*LocalPlayer->GetPreferredUniqueNetId(), NAME_GameSession, *SessionSettings);
 }
 
 void AOnlineCharacter::JoinGameSession()
 {
-	if(!OnlineSessionInterface.IsValid())
+	if (!OnlineSessionInterface.IsValid())
 	{
 		return;
 	}
@@ -146,21 +143,21 @@ void AOnlineCharacter::JoinGameSession()
 	SessionSearch->bIsLanQuery = false;
 	SessionSearch->QuerySettings.Set(SEARCH_PRESENCE, true, EOnlineComparisonOp::Equals);
 
-	const ULocalPlayer* LocalPlayer = GetWorld()->GetFirstLocalPlayerFromController();
+	const ULocalPlayer *LocalPlayer = GetWorld()->GetFirstLocalPlayerFromController();
 	OnlineSessionInterface->FindSessions(*LocalPlayer->GetPreferredUniqueNetId(), SessionSearch.ToSharedRef());
 }
 
 void AOnlineCharacter::OnCreateSessionComplete(FName SessionName, bool bWasSuccessful)
 {
-	if(bWasSuccessful)
+	if (bWasSuccessful)
 	{
 		if (GEngine)
 		{
 			GEngine->AddOnScreenDebugMessage(-1, 15.f, FColor::Blue, FString::Printf(TEXT("Created session: %s"), *SessionName.ToString()));
 		}
 
-		UWorld* World = GetWorld();
-		if(World)
+		UWorld *World = GetWorld();
+		if (World)
 		{
 			World->ServerTravel("/Game/ThirdPerson/Maps/Lobby?listen");
 		}
@@ -176,11 +173,11 @@ void AOnlineCharacter::OnCreateSessionComplete(FName SessionName, bool bWasSucce
 
 void AOnlineCharacter::OnFindSessionsComplete(bool bWasSuccessful)
 {
-	if(!OnlineSessionInterface.IsValid())
+	if (!OnlineSessionInterface.IsValid())
 	{
 		return;
 	}
-	for(auto Result : SessionSearch->SearchResults)
+	for (auto Result : SessionSearch->SearchResults)
 	{
 		FString Id = Result.GetSessionIdStr();
 		FString User = Result.Session.OwningUserName;
@@ -188,41 +185,38 @@ void AOnlineCharacter::OnFindSessionsComplete(bool bWasSuccessful)
 		Result.Session.SessionSettings.Get(FName("MatchType"), MatchType);
 		if (GEngine)
 		{
-			GEngine->AddOnScreenDebugMessage(-1, 15.f, FColor::Cyan, FString::Printf(TEXT("Id: %s, User: %s"),*Id, *User));
+			GEngine->AddOnScreenDebugMessage(-1, 15.f, FColor::Cyan, FString::Printf(TEXT("Id: %s, User: %s"), *Id, *User));
 		}
-		if(MatchType == FString("FreeForAll"))
+		if (MatchType == FString("FreeForAll"))
 		{
 			if (GEngine)
 			{
-				GEngine->AddOnScreenDebugMessage(-1, 15.f, FColor::Cyan, FString::Printf(TEXT("Joining Match Type: %s"),*MatchType));
+				GEngine->AddOnScreenDebugMessage(-1, 15.f, FColor::Cyan, FString::Printf(TEXT("Joining Match Type: %s"), *MatchType));
 			}
 
 			OnlineSessionInterface->AddOnJoinSessionCompleteDelegate_Handle(JoinSessionCompleteDelegate);
 
-			const ULocalPlayer* LocalPlayer = GetWorld()->GetFirstLocalPlayerFromController();
+			const ULocalPlayer *LocalPlayer = GetWorld()->GetFirstLocalPlayerFromController();
 			OnlineSessionInterface->JoinSession(*LocalPlayer->GetPreferredUniqueNetId(), NAME_GameSession, Result);
-
 		}
-
 	}
-	
 }
 
 void AOnlineCharacter::OnJoinSessionComplete(FName SessionName, EOnJoinSessionCompleteResult::Type Result)
 {
-	if(!OnlineSessionInterface.IsValid())
+	if (!OnlineSessionInterface.IsValid())
 	{
 		return;
 	}
 	FString Address;
-	if(OnlineSessionInterface->GetResolvedConnectString(NAME_GameSession, Address))
+	if (OnlineSessionInterface->GetResolvedConnectString(NAME_GameSession, Address))
 	{
 		if (GEngine)
 		{
 			GEngine->AddOnScreenDebugMessage(-1, 15.f, FColor::Yellow, FString::Printf(TEXT("Connect string: %s"), *Address));
 		}
 
-		APlayerController* PlayerController = GetGameInstance()->GetFirstLocalPlayerController();
+		APlayerController *PlayerController = GetGameInstance()->GetFirstLocalPlayerController();
 		if (PlayerController)
 		{
 			PlayerController->ClientTravel(Address, ETravelType::TRAVEL_Absolute);
@@ -230,25 +224,24 @@ void AOnlineCharacter::OnJoinSessionComplete(FName SessionName, EOnJoinSessionCo
 	}
 }
 
-
-
 //////////////////////////////////////////////////////////////////////////
 // Input
 
-void AOnlineCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
+void AOnlineCharacter::SetupPlayerInputComponent(UInputComponent *PlayerInputComponent)
 {
 	// Add Input Mapping Context
-	if (APlayerController* PlayerController = Cast<APlayerController>(GetController()))
+	if (APlayerController *PlayerController = Cast<APlayerController>(GetController()))
 	{
-		if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PlayerController->GetLocalPlayer()))
+		if (UEnhancedInputLocalPlayerSubsystem *Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PlayerController->GetLocalPlayer()))
 		{
 			Subsystem->AddMappingContext(DefaultMappingContext, 0);
 		}
 	}
-	
+
 	// Set up action bindings
-	if (UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(PlayerInputComponent)) {
-		
+	if (UEnhancedInputComponent *EnhancedInputComponent = Cast<UEnhancedInputComponent>(PlayerInputComponent))
+	{
+
 		// Jumping
 		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Started, this, &ACharacter::Jump);
 		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Completed, this, &ACharacter::StopJumping);
@@ -258,6 +251,12 @@ void AOnlineCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
 
 		// Looking
 		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &AOnlineCharacter::Look);
+
+		// Pause
+		if (PauseAction)
+		{
+			EnhancedInputComponent->BindAction(PauseAction, ETriggerEvent::Started, this, &AOnlineCharacter::TogglePauseMenu);
+		}
 	}
 	else
 	{
@@ -265,7 +264,7 @@ void AOnlineCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
 	}
 }
 
-void AOnlineCharacter::Move(const FInputActionValue& Value)
+void AOnlineCharacter::Move(const FInputActionValue &Value)
 {
 	// input is a Vector2D
 	FVector2D MovementVector = Value.Get<FVector2D>();
@@ -278,17 +277,17 @@ void AOnlineCharacter::Move(const FInputActionValue& Value)
 
 		// get forward vector
 		const FVector ForwardDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
-	
-		// get right vector 
+
+		// get right vector
 		const FVector RightDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
 
-		// add movement 
+		// add movement
 		AddMovementInput(ForwardDirection, MovementVector.Y);
 		AddMovementInput(RightDirection, MovementVector.X);
 	}
 }
 
-void AOnlineCharacter::Look(const FInputActionValue& Value)
+void AOnlineCharacter::Look(const FInputActionValue &Value)
 {
 	// input is a Vector2D
 	FVector2D LookAxisVector = Value.Get<FVector2D>();
@@ -298,5 +297,67 @@ void AOnlineCharacter::Look(const FInputActionValue& Value)
 		// add yaw and pitch input to controller
 		AddControllerYawInput(LookAxisVector.X);
 		AddControllerPitchInput(LookAxisVector.Y);
+	}
+}
+
+void AOnlineCharacter::TogglePauseMenu()
+{
+	if (PauseMenuWidget && PauseMenuWidget->IsInViewport())
+	{
+		// 如果菜单已打开，关闭它
+		if (UPauseMenu *PauseMenu = Cast<UPauseMenu>(PauseMenuWidget))
+		{
+			PauseMenu->MenuTeardown();
+		}
+		else
+		{
+			// 手动关闭
+			PauseMenuWidget->RemoveFromParent();
+
+			UWorld *World = GetWorld();
+			if (World)
+			{
+				APlayerController *PlayerController = World->GetFirstPlayerController();
+				if (PlayerController)
+				{
+					FInputModeGameOnly InputModeData;
+					PlayerController->SetInputMode(InputModeData);
+					PlayerController->SetShowMouseCursor(false);
+				}
+			}
+		}
+		PauseMenuWidget = nullptr;
+	}
+	else if (PauseMenuClass)
+	{
+		// 打开暂停菜单
+		UWorld *World = GetWorld();
+		if (World)
+		{
+			APlayerController *PlayerController = World->GetFirstPlayerController();
+			if (PlayerController)
+			{
+				PauseMenuWidget = CreateWidget<UUserWidget>(PlayerController, PauseMenuClass);
+				if (PauseMenuWidget)
+				{
+					// 尝试调用MenuSetup
+					if (UPauseMenu *PauseMenu = Cast<UPauseMenu>(PauseMenuWidget))
+					{
+						PauseMenu->MenuSetup();
+					}
+					else
+					{
+						// 手动设置
+						PauseMenuWidget->AddToViewport();
+
+						FInputModeUIOnly InputModeData;
+						InputModeData.SetWidgetToFocus(PauseMenuWidget->TakeWidget());
+						InputModeData.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+						PlayerController->SetInputMode(InputModeData);
+						PlayerController->SetShowMouseCursor(true);
+					}
+				}
+			}
+		}
 	}
 }
