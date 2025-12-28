@@ -58,8 +58,17 @@ void UMultiplayerSessionsSubsystem::CreateSession(int32 NumPublicConnections, FS
     LastSessionSettings->bShouldAdvertise = true;
     LastSessionSettings->bUsesPresence = true;
     LastSessionSettings->bUseLobbiesIfAvailable = true;
+    LastSessionSettings->bAllowInvites = true;
+    LastSessionSettings->bIsDedicated = false;
+    LastSessionSettings->bUsesStats = false;
     LastSessionSettings->Set(FName("MatchType"), MatchType, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
     LastSessionSettings->BuildUniqueId = 1;
+
+    if (GEngine)
+    {
+        GEngine->AddOnScreenDebugMessage(-1, 15.f, FColor::Cyan, 
+            FString::Printf(TEXT("创建会话: 玩家=%d, 类型=%s, LAN=%d"), NumPublicConnections, *MatchType, LastSessionSettings->bIsLANMatch));
+    }
 
     UE_LOG(LogTemp, Warning, TEXT("会话设置: LAN=%d, 最大玩家=%d, 匹配类型=%s"),
            LastSessionSettings->bIsLANMatch, NumPublicConnections, *MatchType);
@@ -94,9 +103,17 @@ void UMultiplayerSessionsSubsystem::FindSessions(int32 MaxSearchResults)
     LastSessionSearch->MaxSearchResults = MaxSearchResults;
     LastSessionSearch->bIsLanQuery = IOnlineSubsystem::Get()->GetSubsystemName() == "NULL" ? true : false;
     LastSessionSearch->QuerySettings.Set(SEARCH_PRESENCE, true, EOnlineComparisonOp::Equals);
+    LastSessionSearch->QuerySettings.Set(SEARCH_LOBBIES, true, EOnlineComparisonOp::Equals);
 
+    FString SubsystemName = IOnlineSubsystem::Get()->GetSubsystemName().ToString();
     UE_LOG(LogTemp, Warning, TEXT("搜索设置: LAN=%d, 最大结果=%d, 子系统=%s"),
-           LastSessionSearch->bIsLanQuery, MaxSearchResults, *IOnlineSubsystem::Get()->GetSubsystemName().ToString());
+           LastSessionSearch->bIsLanQuery, MaxSearchResults, *SubsystemName);
+
+    if (GEngine)
+    {
+        GEngine->AddOnScreenDebugMessage(-1, 15.f, FColor::Cyan, 
+            FString::Printf(TEXT("开始查找会话 (子系统: %s)"), *SubsystemName));
+    }
 
     const ULocalPlayer *LocalPlayer = GetWorld()->GetFirstLocalPlayerFromController();
     if (!SessionInterface->FindSessions(*LocalPlayer->GetPreferredUniqueNetId(), LastSessionSearch.ToSharedRef()))
@@ -172,11 +189,13 @@ void UMultiplayerSessionsSubsystem::OnCreateSessionComplete(FName SessionName, b
     {
         UE_LOG(LogTemp, Warning, TEXT("创建会话成功！"));
 
-        // 切换到Lobby地图
+        // 切换到配置的地图
         UWorld *World = GetWorld();
         if (World)
         {
-            World->ServerTravel("/Game/ThirdPerson/Maps/Lobby?listen");
+            FString TravelURL = LobbyMapPath + "?listen";
+            UE_LOG(LogTemp, Warning, TEXT("切换到地图: %s"), *TravelURL);
+            World->ServerTravel(TravelURL);
         }
     }
     else
@@ -192,17 +211,27 @@ void UMultiplayerSessionsSubsystem::OnFindSessionsComplete(bool bWasSuccessful)
         SessionInterface->ClearOnFindSessionsCompleteDelegate_Handle(FindSessionsCompleteDelegateHandle);
     }
 
+    int32 NumResults = LastSessionSearch.IsValid() ? LastSessionSearch->SearchResults.Num() : 0;
     UE_LOG(LogTemp, Warning, TEXT("查找会话完成: 成功=%d, 找到数量=%d"),
-           bWasSuccessful, LastSessionSearch.IsValid() ? LastSessionSearch->SearchResults.Num() : 0);
+           bWasSuccessful, NumResults);
 
-    if (LastSessionSearch->SearchResults.Num() <= 0)
+    if (GEngine)
+    {
+        GEngine->AddOnScreenDebugMessage(-1, 15.f, bWasSuccessful ? FColor::Green : FColor::Red, 
+            FString::Printf(TEXT("查找完成: 找到 %d 个会话"), NumResults));
+    }
+
+    if (NumResults <= 0)
     {
         MultiplayerOnFindSessionsComplete.Broadcast(TArray<FOnlineSessionSearchResult>(), false);
         UE_LOG(LogTemp, Warning, TEXT("未找到任何会话"));
 
         if (GEngine)
         {
-            GEngine->AddOnScreenDebugMessage(-1, 15.f, FColor::Yellow, TEXT("未找到任何会话！"));
+            GEngine->AddOnScreenDebugMessage(-1, 15.f, FColor::Yellow, TEXT("未找到会话！检查:"));
+            GEngine->AddOnScreenDebugMessage(-1, 15.f, FColor::Yellow, TEXT("1. 是否Steam好友"));
+            GEngine->AddOnScreenDebugMessage(-1, 15.f, FColor::Yellow, TEXT("2. 对方是否已创建房间"));
+            GEngine->AddOnScreenDebugMessage(-1, 15.f, FColor::Yellow, TEXT("3. 防火墙设置"));
         }
         return;
     }
@@ -214,13 +243,23 @@ void UMultiplayerSessionsSubsystem::OnFindSessionsComplete(bool bWasSuccessful)
         FString MatchType;
         Result.Session.SessionSettings.Get(FName("MatchType"), MatchType);
 
+        int32 CurrentPlayers = Result.Session.SessionSettings.NumPublicConnections - Result.Session.NumOpenPublicConnections;
+        int32 MaxPlayers = Result.Session.SessionSettings.NumPublicConnections;
+
         UE_LOG(LogTemp, Warning, TEXT("会话 %d: 主机=%s, Ping=%d, 匹配类型=%s, 玩家=%d/%d"),
                i,
                *Result.Session.OwningUserName,
                Result.PingInMs,
                *MatchType,
-               Result.Session.SessionSettings.NumPublicConnections - Result.Session.NumOpenPublicConnections,
-               Result.Session.SessionSettings.NumPublicConnections);
+               CurrentPlayers,
+               MaxPlayers);
+
+        if (GEngine)
+        {
+            GEngine->AddOnScreenDebugMessage(-1, 15.f, FColor::Green, 
+                FString::Printf(TEXT("会话 %d: %s [%d/%d] - %s"), 
+                    i + 1, *Result.Session.OwningUserName, CurrentPlayers, MaxPlayers, *MatchType));
+        }
     }
 
     MultiplayerOnFindSessionsComplete.Broadcast(LastSessionSearch->SearchResults, bWasSuccessful);

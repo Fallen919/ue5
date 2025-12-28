@@ -78,6 +78,132 @@ void AOnlineCharacter::BeginPlay()
 	Super::BeginPlay();
 }
 
+void AOnlineCharacter::PossessedBy(AController* NewController)
+{
+	Super::PossessedBy(NewController);
+
+	if (APlayerController* PC = Cast<APlayerController>(NewController))
+	{
+		UE_LOG(LogTemplateCharacter, Warning, TEXT("[服务器] 角色 %s 被占有，控制器: %s"), *GetName(), *PC->GetName());
+		
+		// 确保输入正确
+		PC->SetIgnoreMoveInput(false);
+		PC->SetIgnoreLookInput(false);
+		
+		// 强制添加 Enhanced Input Mapping Context（服务器端）
+		if (UEnhancedInputLocalPlayerSubsystem *Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PC->GetLocalPlayer()))
+		{
+			if (DefaultMappingContext)
+			{
+				// 先清除再添加，防止重复
+				Subsystem->RemoveMappingContext(DefaultMappingContext);
+				Subsystem->AddMappingContext(DefaultMappingContext, 0);
+				UE_LOG(LogTemplateCharacter, Warning, TEXT("PossessedBy: Enhanced Input Mapping Context 已添加"));
+				
+				if (GEngine)
+				{
+					GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Cyan, TEXT("输入映射已设置"));
+				}
+			}
+			else
+			{
+				UE_LOG(LogTemplateCharacter, Error, TEXT("DefaultMappingContext 为空！"));
+				if (GEngine)
+				{
+					GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("错误: 输入映射为空！"));
+				}
+			}
+		}
+		
+		// 通知客户端设置输入
+		ClientSetupInput();
+		
+		if (GEngine)
+		{
+			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
+				FString::Printf(TEXT("角色已占有: %s"), *GetName()));
+		}
+	}
+}
+
+void AOnlineCharacter::OnRep_Controller()
+{
+	Super::OnRep_Controller();
+	
+	if (APlayerController* PC = Cast<APlayerController>(GetController()))
+	{
+		UE_LOG(LogTemplateCharacter, Warning, TEXT("[客户端] OnRep_Controller: %s"), *PC->GetName());
+		
+		if (GEngine)
+		{
+			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Orange, 
+				FString::Printf(TEXT("[客户端] Controller已同步: %s"), *PC->GetName()));
+		}
+		
+		// 客户端Controller同步后，设置输入
+		ClientSetupInput();
+	}
+}
+
+void AOnlineCharacter::ClientSetupInput_Implementation()
+{
+	if (!IsLocallyControlled())
+	{
+		return;
+	}
+	
+	APlayerController* PC = Cast<APlayerController>(GetController());
+	if (!PC)
+	{
+		UE_LOG(LogTemplateCharacter, Error, TEXT("[客户端] ClientSetupInput: Controller为空"));
+		return;
+	}
+	
+	UE_LOG(LogTemplateCharacter, Warning, TEXT("[客户端] ClientSetupInput 被调用"));
+	
+	// 设置输入模式
+	FInputModeGameOnly InputMode;
+	PC->SetInputMode(InputMode);
+	PC->SetShowMouseCursor(false);
+	PC->SetIgnoreMoveInput(false);
+	PC->SetIgnoreLookInput(false);
+	
+	// 添加Enhanced Input Mapping Context
+	if (UEnhancedInputLocalPlayerSubsystem *Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PC->GetLocalPlayer()))
+	{
+		if (DefaultMappingContext)
+		{
+			Subsystem->ClearAllMappings();
+			Subsystem->AddMappingContext(DefaultMappingContext, 0);
+			
+			UE_LOG(LogTemplateCharacter, Warning, TEXT("[客户端] Enhanced Input Mapping Context 已添加"));
+			
+			if (GEngine)
+			{
+				GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, TEXT("[客户端] 输入已设置！"));
+			}
+		}
+		else
+		{
+			UE_LOG(LogTemplateCharacter, Error, TEXT("[客户端] DefaultMappingContext 为空！"));
+			
+			if (GEngine)
+			{
+				GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("[客户端] 错误: Mapping Context为空！"));
+			}
+		}
+	}
+	else
+	{
+		UE_LOG(LogTemplateCharacter, Error, TEXT("[客户端] 无法获取 EnhancedInputLocalPlayerSubsystem"));
+		
+		if (GEngine)
+		{
+			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("[客户端] 错误: 无法获取Input Subsystem"));
+		}
+	}
+}
+
 void AOnlineCharacter::OpenLobby()
 {
 	UWorld *World = GetWorld();
@@ -159,7 +285,7 @@ void AOnlineCharacter::OnCreateSessionComplete(FName SessionName, bool bWasSucce
 		UWorld *World = GetWorld();
 		if (World)
 		{
-			World->ServerTravel("/Game/ThirdPerson/Maps/Lobby?listen");
+			World->ServerTravel("/Game/ThirdPerson/Maps/GameMap?listen");
 		}
 	}
 	else
@@ -229,13 +355,31 @@ void AOnlineCharacter::OnJoinSessionComplete(FName SessionName, EOnJoinSessionCo
 
 void AOnlineCharacter::SetupPlayerInputComponent(UInputComponent *PlayerInputComponent)
 {
+	UE_LOG(LogTemplateCharacter, Warning, TEXT("SetupPlayerInputComponent 被调用: %s"), *GetName());
+
 	// Add Input Mapping Context
 	if (APlayerController *PlayerController = Cast<APlayerController>(GetController()))
 	{
 		if (UEnhancedInputLocalPlayerSubsystem *Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PlayerController->GetLocalPlayer()))
 		{
-			Subsystem->AddMappingContext(DefaultMappingContext, 0);
+			if (DefaultMappingContext)
+			{
+				Subsystem->AddMappingContext(DefaultMappingContext, 0);
+				UE_LOG(LogTemplateCharacter, Warning, TEXT("Enhanced Input Mapping Context 已添加"));
+			}
+			else
+			{
+				UE_LOG(LogTemplateCharacter, Error, TEXT("DefaultMappingContext 为空！"));
+			}
 		}
+		else
+		{
+			UE_LOG(LogTemplateCharacter, Error, TEXT("无法获取 EnhancedInputLocalPlayerSubsystem"));
+		}
+	}
+	else
+	{
+		UE_LOG(LogTemplateCharacter, Error, TEXT("Controller 为空或不是 PlayerController"));
 	}
 
 	// Set up action bindings

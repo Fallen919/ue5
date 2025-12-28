@@ -32,6 +32,10 @@ public:
     void DestroySession();
     void StartSession();
 
+    // 设置创建会话后要切换的地图路径
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Multiplayer")
+    FString LobbyMapPath = "/Game/ThirdPerson/Maps/GameMap";
+
     // 自定义委托
     FMultiplayerOnCreateSessionComplete MultiplayerOnCreateSessionComplete;
     FMultiplayerOnFindSessionsComplete MultiplayerOnFindSessionsComplete;

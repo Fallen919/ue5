@@ -29,43 +29,63 @@ void AOnlineGameMode::BeginPlay()
 {
 	Super::BeginPlay();
 
-	UE_LOG(LogTemp, Warning, TEXT("OnlineGameMode BeginPlay - 设置游戏输入模式"));
+	UE_LOG(LogTemp, Warning, TEXT("OnlineGameMode BeginPlay"));
+}
 
-	// 确保所有玩家控制器都设置为游戏输入模式
-	for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+void AOnlineGameMode::PostLogin(APlayerController* NewPlayer)
+{
+	Super::PostLogin(NewPlayer);
+
+	if (NewPlayer)
 	{
-		APlayerController *PlayerController = Iterator->Get();
-		if (PlayerController)
+		bool bIsLocal = NewPlayer->IsLocalPlayerController();
+		APawn* ControlledPawn = NewPlayer->GetPawn();
+		
+		UE_LOG(LogTemp, Warning, TEXT("玩家加入: %s (本地=%d, Pawn=%s)"), 
+			*NewPlayer->GetName(), bIsLocal, ControlledPawn ? TEXT("有") : TEXT("无"));
+
+		// 强制设置为游戏输入模式
+		FInputModeGameOnly InputMode;
+		InputMode.SetConsumeCaptureMouseDown(false);
+		NewPlayer->SetInputMode(InputMode);
+		NewPlayer->SetShowMouseCursor(false);
+		NewPlayer->bShowMouseCursor = false;
+		
+		// 确保输入启用
+		NewPlayer->SetIgnoreMoveInput(false);
+		NewPlayer->SetIgnoreLookInput(false);
+
+		if (GEngine)
 		{
-			FInputModeGameOnly InputMode;
-			PlayerController->SetInputMode(InputMode);
-			PlayerController->SetShowMouseCursor(false);
-
-			UE_LOG(LogTemp, Warning, TEXT("玩家控制器设置为游戏模式"));
-
-			// 创建HUD
-			if (GameHUDClass)
+			FString StatusMsg = FString::Printf(TEXT("玩家加入: %s [本地:%s]"), 
+				*NewPlayer->GetName(), bIsLocal ? TEXT("是") : TEXT("否"));
+			GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Green, StatusMsg);
+			
+			if (ControlledPawn)
 			{
-				UE_LOG(LogTemp, Warning, TEXT("GameHUDClass 已设置: %s"), *GameHUDClass->GetName());
+				GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Cyan,
+					FString::Printf(TEXT("已占有角色: %s"), *ControlledPawn->GetName()));
+			}
+		}
 
-				if (!GameHUDWidget)
+		// 如果是本地玩家，创建HUD
+		if (bIsLocal)
+		{
+			if (GameHUDClass && !GameHUDWidget)
+			{
+				UE_LOG(LogTemp, Warning, TEXT("为本地玩家创建HUD: %s"), *GameHUDClass->GetName());
+
+				GameHUDWidget = CreateWidget<UUserWidget>(NewPlayer, GameHUDClass);
+				if (GameHUDWidget)
 				{
-					GameHUDWidget = CreateWidget<UUserWidget>(PlayerController, GameHUDClass);
-					if (GameHUDWidget)
-					{
-						GameHUDWidget->AddToViewport();
-						UE_LOG(LogTemp, Warning, TEXT("游戏HUD创建成功并添加到视口"));
-						UpdateHUD();
-					}
-					else
-					{
-						UE_LOG(LogTemp, Error, TEXT("游戏HUD创建失败！"));
-					}
+					GameHUDWidget->AddToViewport();
+					UE_LOG(LogTemp, Warning, TEXT("游戏HUD创建成功"));
+					UpdateHUD();
 				}
 			}
-			else
+			else if (!GameHUDClass)
 			{
-				UE_LOG(LogTemp, Error, TEXT("GameHUDClass 未设置！请在GameMode蓝图中设置。当前GameMode: %s"), *GetClass()->GetName());
+				UE_LOG(LogTemp, Error, TEXT("GameHUDClass未设置！"));
 			}
 		}
 	}

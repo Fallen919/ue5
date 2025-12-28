@@ -79,9 +79,15 @@ protected:
 protected:
 	// APawn interface
 	virtual void SetupPlayerInputComponent(class UInputComponent *PlayerInputComponent) override;
+	virtual void PossessedBy(AController* NewController) override;
+	virtual void OnRep_Controller() override;
 
 	// To add mapping context
 	virtual void BeginPlay();
+
+	// Client RPC to setup input on client
+	UFUNCTION(Client, Reliable)
+	void ClientSetupInput();
 
 public:
 	/** Returns CameraBoom subobject **/
