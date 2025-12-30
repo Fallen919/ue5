@@ -22,6 +22,12 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	UInputAction* InputAction; // 对应的输入动作资源
+
+	bool IsValid()const
+	{
+		return InputTag.IsValid() && InputAction;
+	}
+
 };
 
 /**
@@ -39,6 +45,11 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, meta = (TitleProperty = "InputTag"))
 	TArray<FWarriorInputActionConfig> NativeInputActions; // 输入动作配置数组
 
+
+
 	// 根据输入标签查找对应的输入动作
 	UInputAction* FindNativeInputActionByTag(const FGameplayTag& InInputTag) const;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, meta = (TitleProperty = "InputTag"))
+	TArray<FWarriorInputActionConfig> AbilityInputActions; // xx配置数组
 };

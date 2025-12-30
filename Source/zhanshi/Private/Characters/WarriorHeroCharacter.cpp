@@ -13,6 +13,8 @@
 	#include"WarriorGameplayTags.h"
     #include "DataAssets/StartDataBase/DataAsset_HeroStartUpData.h"
 
+    #include "Components/Combat/HeroCombatComponent.h"
+
 	#include"WarriorDebugHelper.h"
 
 	AWarriorHeroCharacter::AWarriorHeroCharacter()
@@ -38,13 +40,17 @@
 		GetCharacterMovement()->RotationRate = FRotator(0.f, 500.f, 0.f);
 		GetCharacterMovement()->MaxWalkSpeed = 400.f;
 		GetCharacterMovement()->BrakingDecelerationWalking = 2000.f;
+
+		HeroCombatComponent=CreateDefaultSubobject<UHeroCombatComponent>(TEXT("HeroCombatComponent"));
 	}
 
 
 	void AWarriorHeroCharacter::PossessedBy(AController* NewController)
 	{
 		Super::PossessedBy(NewController);
-		
+
+		WarriorAbilitySystemComponent->InitAbilityActorInfo(this, this);
+
 		if (!CharacterStartUpData.IsNull())
 		{
 			if (UDataAsset_StartUpDataBase* LoadedData = CharacterStartUpData.LoadSynchronous())
@@ -53,6 +59,7 @@
 			}
 		}
 	}
+
 
 	void AWarriorHeroCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 	{
@@ -66,6 +73,8 @@
 		UWarriorInputComponent* WarriorInputComponent=CastChecked<UWarriorInputComponent>(PlayerInputComponent);
 		WarriorInputComponent->BindNativeInputAction(InputConfigDataAsset, WarriorGameplayTags::InputTag_Move, ETriggerEvent::Triggered, this, &ThisClass::Input_Move);
 		WarriorInputComponent->BindNativeInputAction(InputConfigDataAsset, WarriorGameplayTags::InputTag_Look, ETriggerEvent::Triggered, this, &ThisClass::Input_Look);
+	    
+		WarriorInputComponent->BindAbilityInputAction(InputConfigDataAsset, this, &ThisClass::Input_AbilityInputPressed, &ThisClass::Input_AbilityInputReleased);
 	}
 
 	void AWarriorHeroCharacter::BeginPlay()
@@ -104,4 +113,24 @@
 		if (LookAxisVector.Y != 0.f) {
 			AddControllerPitchInput(LookAxisVector.Y);
 		}
+	}
+
+	void AWarriorHeroCharacter::Input_AbilityInputPressed(FGameplayTag InInputTag)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[Input] Pressed Tag = %s"), *InInputTag.ToString());
+
+		WarriorAbilitySystemComponent->OnAbilityInputPressed(InInputTag);
+	}
+
+	void AWarriorHeroCharacter::Input_AbilityInputReleased(FGameplayTag InInputTag)
+	{
+		WarriorAbilitySystemComponent->OnAbilityInputReleased(InInputTag);
+	}
+
+
+	 void AWarriorHeroCharacter::OnRep_PlayerState()
+	{
+		Super::OnRep_PlayerState();
+
+		WarriorAbilitySystemComponent->InitAbilityActorInfo(this, this);
 	}
