@@ -1,0 +1,44 @@
+# UE5项目标准.gitignore
+# 编译生成文件
+Binaries/
+DerivedDataCache/
+Intermediate/
+Saved/
+.vs/
+*.sln
+*.suo
+*.opendb
+
+# 构建文件
+Build/
+
+# 平台文件（根据你的目标平台保留需要的）
+# 通常不提交这些，让每个开发者自己生成
+# IOS/
+# Android/
+# PS4/
+# PS5/
+# XboxOne/
+# XboxScarlett/
+# Linux/
+# Mac/
+# HTML5/
+
+# IDE文件
+.idea/
+.vscode/
+
+# 缓存和临时文件
+*.log
+*.tmp
+*.tmp_proj
+*.Dot
+*.opensdf
+*.sdf
+*.VC.db
+*.VC.opendb
+/autosave/
+
+# 二进制资产（除非必要，否则最好用源文件）
+*.PDB
+Thumbs.db
