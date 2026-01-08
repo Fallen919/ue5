@@ -10,6 +10,10 @@
 void UDataAsset_HeroStartUpData::GiveToAbilitySystemComponent(UWarriorAbilitySystemComponent* InASCToGive, int32 ApplyLevel)
 {
     Super::GiveToAbilitySystemComponent(InASCToGive, ApplyLevel);
+    if (!InASCToGive->IsOwnerActorAuthoritative())
+    {
+        return;
+    }
 
     for (const FWarriorHeroAbilitySet& AbilitySet : HeroStartUpAbilitySets)
     {

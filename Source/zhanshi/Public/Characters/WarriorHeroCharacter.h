@@ -7,6 +7,7 @@
 #include "GameFramework/SpringArmComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "GameplayTagContainer.h"
+#include "WarriorTypes/WarriorStructTypes.h"
 #include "WarriorHeroCharacter.generated.h"
 
 class USpringArmComponent;
@@ -61,6 +62,8 @@ private:
 
 	void Input_AbilityInputPressed(FGameplayTag InInputTag);
 	void Input_AbilityInputReleased(FGameplayTag InInputTag);
+	void ApplyAppearanceFromPlayerState();
+
 
 #pragma endregion
 public:
@@ -68,4 +71,6 @@ public:
 	{
 		return HeroCombatComponent;
 	}
+
+	void ApplyCharacterAppearance(const FWarriorCharacterAppearance& InAppearance);
 };

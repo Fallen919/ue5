@@ -8,6 +8,7 @@
 #include "HeroCombatComponent.generated.h"
 
 class AWarriorHeroWeapon;
+class UInputMappingContext;
 
 /**
  * 
@@ -20,5 +21,13 @@ class ZHANSHI_API UHeroCombatComponent : public UPawnCombatComponent
 public:
 	UFUNCTION(BlueprintCallable, Category = "Warrior|Combat")
 	AWarriorHeroWeapon* GetHeroCarriedWeaponByTag(FGameplayTag InWeaponTag)const;
+
+	// 在客户端添加武器输入映射
+	UFUNCTION(Client, Reliable, BlueprintCallable, Category = "Warrior|Combat")
+	void ClientAddInputMappingContext(UInputMappingContext* MappingContext, int32 Priority);
+
+	// 在客户端移除武器输入映射
+	UFUNCTION(Client, Reliable, BlueprintCallable, Category = "Warrior|Combat")
+	void ClientRemoveInputMappingContext(UInputMappingContext* MappingContext);
 
 };

@@ -3,34 +3,60 @@
 
 #include "Components/Combat/PawnCombatComponent.h"
 #include "Items/Weapons/WarriorWeaponBase.h"
+#include "Net/UnrealNetwork.h"
 #include"WarriorDebugHelper.h"
 
+UPawnCombatComponent::UPawnCombatComponent()
+{
+    SetIsReplicatedByDefault(true);
+}
+
 void UPawnCombatComponent::RegisterSpawnWeapon(
-    FGameplayTag InWeaponTagToRegister,  // Òª×¢²áµÄÎäÆ÷±êÇ©£¬ÓÃÓÚÎ¨Ò»±êÊ¶ÎäÆ÷ÀàÐÍ£¨Èç"Weapon.Sword"£©
-    AWarriorWeaponBase* InWeaponToRegister, // Òª×¢²áµÄÎäÆ÷¶ÔÏóÖ¸Õë
-    bool bRegisterAsEquippedWeapon // ÊÇ·ñ½«´ËÎäÆ÷ÉèÖÃÎªµ±Ç°×°±¸µÄÎäÆ÷
+    FGameplayTag InWeaponTagToRegister,  // è¦æ³¨å†Œçš„æ­¦å™¨æ ‡ç­¾ï¼Œç”¨äºŽå”¯ä¸€æ ‡è¯†æ­¦å™¨ç±»åž‹ï¼Œå¦‚"Weapon.Axe"
+    AWarriorWeaponBase* InWeaponToRegister, // è¦æ³¨å†Œçš„æ­¦å™¨çš„æŒ‡é’ˆ
+    bool bRegisterAsEquippedWeapon // æ˜¯å¦å°†æ­¤æ­¦å™¨è®¾ç½®ä¸ºå½“å‰è£…å¤‡çš„æ­¦å™¨
 )
 {
-    // È·±£µ±Ç°Ã»ÓÐÍ¬±êÇ©µÄÎäÆ÷ÒÑ±»×¢²á
-    // Ê¹ÓÃcheckfÔÚ¿ª·¢Ê±Ìá¹©ÏêÏ¸´íÎóÐÅÏ¢£¬·ÀÖ¹ÖØ¸´Ìí¼ÓÎäÆ÷
-    checkf(!CharacterCarriedWeaponMap.Contains(InWeaponTagToRegister),
-        TEXT("ÃûÎª %s µÄÎäÆ÷ÒÑ¾­×÷ÎªÐ¯´øÎäÆ÷Ìí¼Ó¹ýÁË"), *InWeaponTagToRegister.ToString());
-    // È·±£´«ÈëµÄÎäÆ÷Ö¸ÕëÓÐÐ§
+    if (CharacterCarriedWeaponMap.Contains(InWeaponTagToRegister))
+    {
+        if (bRegisterAsEquippedWeapon)
+        {
+            CurrentEquipedWeaponTag = InWeaponTagToRegister;
+        }
+        UE_LOG(LogTemp, Warning, TEXT("[Weapon] Already registered: %s for %s"), 
+            *InWeaponTagToRegister.ToString(), 
+            *GetNameSafe(GetOwner()));
+        return;
+    }
+    // ç¡®ä¿æ­¦å™¨çš„æŒ‡é’ˆæœ‰æ•ˆ
     check(InWeaponToRegister);
 
-    // ½«ÎäÆ÷Ìí¼Óµ½½ÇÉ«µÄÎäÆ÷×ÖµäÖÐ
-    // Ê¹ÓÃEmplace¸ßÐ§µØÖ±½ÓÔÚ×ÖµäÄÚ´æÖÐ¹¹Ôì¼üÖµ¶Ô£º
-    // - ¼ü£ºInWeaponTagToRegister
-    // - Öµ£ºInWeaponToRegister
+    UE_LOG(LogTemp, Warning, TEXT("[Weapon] Registering: %s for %s | Weapon=%s (Equipped=%d)"), 
+        *InWeaponTagToRegister.ToString(), 
+        *GetNameSafe(GetOwner()),
+        *GetNameSafe(InWeaponToRegister),
+        bRegisterAsEquippedWeapon);
+
+    // å°†æ­¦å™¨æ·»åŠ åˆ°è§’è‰²æºå¸¦çš„æ­¦å™¨å­—å…¸ä¸­
+    // - é”®ï¼šInWeaponTagToRegister
+    // - å€¼ï¼šInWeaponToRegister
     CharacterCarriedWeaponMap.Emplace(InWeaponTagToRegister, InWeaponToRegister);
 
-    // Èç¹û²ÎÊýÖ¸¶¨Òª×°±¸´ËÎäÆ÷£¬Ôò¸üÐÂµ±Ç°×°±¸ÎäÆ÷µÄ±êÇ©
+    // å¦‚æžœå‚æ•°æŒ‡å®šè¦è£…å¤‡æ­¤æ­¦å™¨ï¼Œåˆ™æ›´æ–°å½“å‰è£…å¤‡æ­¦å™¨çš„æ ‡ç­¾
     if (bRegisterAsEquippedWeapon)
     {
-        // ÉèÖÃµ±Ç°×°±¸ÎäÆ÷±êÇ©
+        // è®¾ç½®å½“å‰è£…å¤‡çš„æ­¦å™¨æ ‡ç­¾
         CurrentEquipedWeaponTag = InWeaponTagToRegister;
     }
-   
+
+    // é€šçŸ¥å®¢æˆ·ç«¯æ³¨å†Œæ­¦å™¨
+    if (AActor* Owner = GetOwner())
+    {
+        if (Owner->HasAuthority())
+        {
+            ClientRegisterWeapon(InWeaponTagToRegister, InWeaponToRegister, bRegisterAsEquippedWeapon);
+        }
+    }
 }
 
 AWarriorWeaponBase* UPawnCombatComponent::GetCharacterCarriedWeaponByTag(FGameplayTag InWeaponTagGet) const
@@ -39,10 +65,59 @@ AWarriorWeaponBase* UPawnCombatComponent::GetCharacterCarriedWeaponByTag(FGamepl
     {
         if (AWarriorWeaponBase* const* FoundWeapon = CharacterCarriedWeaponMap.Find(InWeaponTagGet))
         {
-            return *FoundWeapon;
+            AWarriorWeaponBase* Weapon = *FoundWeapon;
+            
+            // æ£€æŸ¥æ­¦å™¨æ˜¯å¦æœ‰æ•ˆ
+            if (!IsValid(Weapon))
+            {
+                UE_LOG(LogTemp, Error, TEXT("[Weapon] Found weapon in map but it's INVALID! Tag=%s Owner=%s"), 
+                    *InWeaponTagGet.ToString(), 
+                    *GetNameSafe(GetOwner()));
+                return nullptr;
+            }
+            
+            return Weapon;
         }
     }
+    
+    UE_LOG(LogTemp, Error, TEXT("[Weapon] Weapon NOT FOUND in map! Tag=%s Owner=%s MapSize=%d"), 
+        *InWeaponTagGet.ToString(), 
+        *GetNameSafe(GetOwner()),
+        CharacterCarriedWeaponMap.Num());
+    
     return nullptr;
+}
+
+void UPawnCombatComponent::ClientRegisterWeapon_Implementation(FGameplayTag InWeaponTag, AWarriorWeaponBase* InWeapon, bool bAsEquipped)
+{
+    if (!InWeapon || !InWeaponTag.IsValid())
+    {
+        return;
+    }
+
+    // Only register on clients
+    if (AActor* Owner = GetOwner())
+    {
+        if (Owner->HasAuthority())
+        {
+            return; // Server already registered in the main function
+        }
+    }
+
+    if (!CharacterCarriedWeaponMap.Contains(InWeaponTag))
+    {
+        CharacterCarriedWeaponMap.Emplace(InWeaponTag, InWeapon);
+        
+        if (bAsEquipped)
+        {
+            CurrentEquipedWeaponTag = InWeaponTag;
+        }
+
+        UE_LOG(LogTemp, Warning, TEXT("[Weapon] CLIENT registered: %s for %s | Weapon=%s"), 
+            *InWeaponTag.ToString(), 
+            *GetNameSafe(GetOwner()),
+            *GetNameSafe(InWeapon));
+    }
 }
 
 AWarriorWeaponBase* UPawnCombatComponent::GetCharacterCurrentEquippedWeapon() const
@@ -53,3 +128,121 @@ AWarriorWeaponBase* UPawnCombatComponent::GetCharacterCurrentEquippedWeapon() co
     }
     return GetCharacterCarriedWeaponByTag(CurrentEquipedWeaponTag);
 }
+
+void UPawnCombatComponent::DestroyCarriedWeapons()
+{
+    if (AActor* Owner = GetOwner())
+    {
+        if (!Owner->HasAuthority())
+        {
+            return;
+        }
+    }
+
+    UE_LOG(LogTemp, Error, TEXT("[Weapon] ===== DESTROYING ALL WEAPONS ===== Owner=%s MapSize=%d"), 
+        *GetNameSafe(GetOwner()),
+        CharacterCarriedWeaponMap.Num());
+
+    for (TPair<FGameplayTag, AWarriorWeaponBase*>& Pair : CharacterCarriedWeaponMap)
+    {
+        if (IsValid(Pair.Value))
+        {
+            UE_LOG(LogTemp, Warning, TEXT("[Weapon] Destroying weapon: %s"), *GetNameSafe(Pair.Value));
+            
+            // Reset collision before destroying
+            if (UBoxComponent* CollisionBox = Pair.Value->GetWeaponCollisionBox())
+            {
+                CollisionBox->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+            }
+            
+            Pair.Value->Destroy();
+        }
+    }
+
+    CharacterCarriedWeaponMap.Empty();
+    CurrentEquipedWeaponTag = FGameplayTag();
+    
+    UE_LOG(LogTemp, Error, TEXT("[Weapon] ===== ALL WEAPONS DESTROYED ===== Owner=%s"), *GetNameSafe(GetOwner()));
+}
+
+
+void UPawnCombatComponent::StartBlock(float PerfectBlockWindow)
+{
+    if (AActor* Owner = GetOwner())
+    {
+        if (!Owner->HasAuthority())
+        {
+            return;
+        }
+    }
+
+    bIsBlocking = true;
+
+    float Window = PerfectBlockWindow;
+    if (Window < 0.f)
+    {
+        Window = DefaultPerfectBlockWindow;
+    }
+
+    if (Window > 0.f)
+    {
+        bPerfectBlockWindowActive = true;
+        if (UWorld* World = GetWorld())
+        {
+            World->GetTimerManager().ClearTimer(PerfectBlockWindowTimer);
+            World->GetTimerManager().SetTimer(PerfectBlockWindowTimer, this, &ThisClass::ConsumePerfectBlockWindow, Window, false);
+        }
+    }
+    else
+    {
+        bPerfectBlockWindowActive = false;
+    }
+}
+
+void UPawnCombatComponent::EndBlock()
+{
+    if (AActor* Owner = GetOwner())
+    {
+        if (!Owner->HasAuthority())
+        {
+            return;
+        }
+    }
+
+    bIsBlocking = false;
+    ConsumePerfectBlockWindow();
+}
+
+bool UPawnCombatComponent::IsBlocking() const
+{
+    return bIsBlocking;
+}
+
+bool UPawnCombatComponent::IsPerfectBlockWindowActive() const
+{
+    return bPerfectBlockWindowActive;
+}
+
+float UPawnCombatComponent::GetBlockDamageMultiplier() const
+{
+    return BlockDamageMultiplier;
+}
+
+void UPawnCombatComponent::ConsumePerfectBlockWindow()
+{
+    bPerfectBlockWindowActive = false;
+    if (UWorld* World = GetWorld())
+    {
+        World->GetTimerManager().ClearTimer(PerfectBlockWindowTimer);
+    }
+}
+
+void UPawnCombatComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+    Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+    DOREPLIFETIME(UPawnCombatComponent, bIsBlocking);
+    DOREPLIFETIME(UPawnCombatComponent, bPerfectBlockWindowActive);
+}
+
+

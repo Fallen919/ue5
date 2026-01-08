@@ -12,10 +12,10 @@ public class zhanshi : ModuleRules
 			"CoreUObject", 
 			"Engine", 
 			"InputCore", 
-			"EnhancedInput" ,
-        "GameplayTags",
-        "EnhancedInput",
-        "GameplayTasks"});
+			"EnhancedInput",
+			"GameplayTags",
+			"GameplayAbilities",
+			"GameplayTasks"});
 
 		PrivateDependencyModuleNames.AddRange(new string[] {  });
 

@@ -8,6 +8,10 @@
 void UDataAsset_StartUpDataBase::GiveToAbilitySystemComponent(UWarriorAbilitySystemComponent* InASCToGive, int32 ApplyLevel )
 {
 	check(InASCToGive);
+	if (!InASCToGive->IsOwnerActorAuthoritative())
+	{
+		return;
+	}
 
 	GrantAbilities(ActivationOnGivenAbilities, InASCToGive, ApplyLevel);
 	GrantAbilities(ReactiveAbilities, InASCToGive, ApplyLevel);

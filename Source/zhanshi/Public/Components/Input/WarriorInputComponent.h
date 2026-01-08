@@ -43,6 +43,7 @@ inline void UWarriorInputComponent::BindAbilityInputAction(const UDataAsset_Inpu
 		if (!AbilityInputActionConfig.IsValid())continue;
 		BindAction(AbilityInputActionConfig.InputAction, ETriggerEvent::Started, ContextObject, InputPressedFunc, AbilityInputActionConfig.InputTag);
 		BindAction(AbilityInputActionConfig.InputAction, ETriggerEvent::Completed, ContextObject, InputRelasedFunc, AbilityInputActionConfig.InputTag);
+		BindAction(AbilityInputActionConfig.InputAction, ETriggerEvent::Canceled, ContextObject, InputRelasedFunc, AbilityInputActionConfig.InputTag);
 
 	}
 }
