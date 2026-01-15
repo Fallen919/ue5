@@ -9,7 +9,7 @@
 class AWarriorHeroCharacter;
 
 /**
- * Õ½Ê¿Ó¢ĞÛ½ÇÉ«µÄ¶¯»­ÊµÀı
+ * æˆ˜å£«è‹±é›„è§’è‰²çš„åŠ¨ç”»å®ä¾‹
  */
 UCLASS()
 class ZHANSHI_API UWarriorHeroAnimInstance : public UWarriorCharactersAnimInstance
@@ -19,22 +19,22 @@ class ZHANSHI_API UWarriorHeroAnimInstance : public UWarriorCharactersAnimInstan
 public:
 	virtual void NativeInitializeAnimation() override;
 
-	// Ã¿Ö¡¸üĞÂ¶¯»­ÓÃµÄÊı¾İ
+	// æ¯å¸§æ›´æ–°åŠ¨ç”»è°ƒç”¨çš„å‡½æ•°
 	virtual void NativeThreadSafeUpdateAnimation(float DeltaSeconds) override;
 
 protected:
-	// ÓµÓĞ±¾ AnimInstance µÄÓ¢ĞÛ½ÇÉ«
+	// æ‹¥æœ‰æ­¤ AnimInstance çš„è‹±é›„è§’è‰²
 	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = "AnimData|Refrences")
 	AWarriorHeroCharacter* OwningHeroCharacter;
 
-	// ÊÇ·ñ¸Ã½øÈë¡°·ÅËÉ/ĞİÏĞ¡±´ı»ú×´Ì¬
+	// æ˜¯å¦åº”è¿›å…¥ã€Œæ”¾æ¾/å¾…æœºã€åŠ¨ç”»çŠ¶æ€
 	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = "AnimData|LocomtionData")
 	bool bShouldEnterRelaxState;
 
-	// Idle ¶à¾Ãºó½øÈë·ÅËÉ×´Ì¬£¨Ãë£©
+	// Idle å¤šä¹…åè¿›å…¥æ”¾æ¾çŠ¶æ€ï¼ˆç§’ï¼‰
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "AnimData|LocomtionData")
 	float EnterRelaxStateThreshold = 5.f;
 
-	// µ±Ç° Idle ÒÑ³ÖĞøÊ±¼ä£¨Ãë£©
+	// å½“å‰ Idle å·²æŒç»­æ—¶é—´ï¼ˆç§’ï¼‰
 	float IdleElpasedTime;
 };

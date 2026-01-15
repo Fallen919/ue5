@@ -4,8 +4,13 @@
 
 #include "CoreMinimal.h"
 #include "Abilities/GameplayAbility.h"
+#include "Components/Combat/PawnCombatComponent.h"
+#include "GameplayTagContainer.h"
 #include "WarriorGameplayAbility.generated.h"
 
+class UPawnCombatComponent;
+class UWarriorAbilitySystemComponent;
+class UGameplayEffect;
 
 UENUM(BlueprintType) 
 enum class EWarriorAbilityActivationPolicy :uint8
@@ -21,6 +26,10 @@ class ZHANSHI_API UWarriorGameplayAbility : public UGameplayAbility
 { 
 	GENERATED_BODY()
 	
+public:
+	UFUNCTION(BlueprintCallable, Category = "Warrior|Ability")
+	bool ApplyDamageEffect(AActor* TargetActor, TSubclassOf<UGameplayEffect> DamageEffectClass, float DamageMagnitude, FGameplayTag DamageTag);
+
 protected:
 
 	//~ Begin UGameplayAbility Interface.
@@ -31,4 +40,10 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly,Category="WarriorAbility") 
 	EWarriorAbilityActivationPolicy AbilityActivationPolicy = EWarriorAbilityActivationPolicy::OnTriggered;
+
+	UFUNCTION(BlueprintPure,Category="Warrior|Ability")
+	UPawnCombatComponent* GetPawnCombatComponentFromActorInfo()const;
+
+	UFUNCTION(BlueprintPure, Category = "Warrior|Ability")
+	UWarriorAbilitySystemComponent* GetWarriorAbilitySystemComponentFromActorInfo()const;
 };

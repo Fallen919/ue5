@@ -13,6 +13,9 @@
 	#include"WarriorGameplayTags.h"
     #include "DataAssets/StartDataBase/DataAsset_HeroStartUpData.h"
 
+    #include "Components/Combat/HeroCombatComponent.h"
+#include "PlayerStates/WarriorPlayerState.h"
+
 	#include"WarriorDebugHelper.h"
 
 	AWarriorHeroCharacter::AWarriorHeroCharacter()
@@ -38,13 +41,20 @@
 		GetCharacterMovement()->RotationRate = FRotator(0.f, 500.f, 0.f);
 		GetCharacterMovement()->MaxWalkSpeed = 400.f;
 		GetCharacterMovement()->BrakingDecelerationWalking = 2000.f;
+
+		HeroCombatComponent=CreateDefaultSubobject<UHeroCombatComponent>(TEXT("HeroCombatComponent"));
 	}
 
 
 	void AWarriorHeroCharacter::PossessedBy(AController* NewController)
 	{
 		Super::PossessedBy(NewController);
-		
+
+		WarriorAbilitySystemComponent->InitAbilityActorInfo(this, this);
+	
+		ResetForRespawn();
+		ApplyAppearanceFromPlayerState();
+
 		if (!CharacterStartUpData.IsNull())
 		{
 			if (UDataAsset_StartUpDataBase* LoadedData = CharacterStartUpData.LoadSynchronous())
@@ -53,6 +63,7 @@
 			}
 		}
 	}
+
 
 	void AWarriorHeroCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 	{
@@ -66,6 +77,8 @@
 		UWarriorInputComponent* WarriorInputComponent=CastChecked<UWarriorInputComponent>(PlayerInputComponent);
 		WarriorInputComponent->BindNativeInputAction(InputConfigDataAsset, WarriorGameplayTags::InputTag_Move, ETriggerEvent::Triggered, this, &ThisClass::Input_Move);
 		WarriorInputComponent->BindNativeInputAction(InputConfigDataAsset, WarriorGameplayTags::InputTag_Look, ETriggerEvent::Triggered, this, &ThisClass::Input_Look);
+	    
+		WarriorInputComponent->BindAbilityInputAction(InputConfigDataAsset, this, &ThisClass::Input_AbilityInputPressed, &ThisClass::Input_AbilityInputReleased);
 	}
 
 	void AWarriorHeroCharacter::BeginPlay()
@@ -80,17 +93,17 @@
 		if (!Controller)
 			return;
 
-		// »ñÈ¡¿ØÖÆÆ÷µÄÐý×ª£¨ÉãÏñ»ú·½Ïò£©
+		// ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×ªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 		const FRotator Rotation = Controller->GetControlRotation();
 
-		// Ö»Ê¹ÓÃYaw£¨Ë®Æ½Ðý×ª£©¼ÆËã·½Ïò
+		// Ö»Ê¹ï¿½ï¿½Yawï¿½ï¿½Ë®Æ½ï¿½ï¿½×ªï¿½ï¿½ï¿½ï¿½ï¿½ã·½ï¿½ï¿½
 		const FRotator YawRotation(0.f, Rotation.Yaw, 0.f);
 
-		// ¼ÆËã»ùÓÚÉãÏñ»ú·½ÏòµÄÒÆ¶¯ÏòÁ¿
+		// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æ¶ï¿½ï¿½ï¿½ï¿½ï¿½
 		const FVector ForwardDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
 		const FVector RightDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
 
-		// Ó¦ÓÃÒÆ¶¯ÊäÈë
+		// Ó¦ï¿½ï¿½ï¿½Æ¶ï¿½ï¿½ï¿½ï¿½ï¿½
 		AddMovementInput(ForwardDirection, MovementVector.Y);
 		AddMovementInput(RightDirection, MovementVector.X);
 	}
@@ -103,5 +116,60 @@
 		}
 		if (LookAxisVector.Y != 0.f) {
 			AddControllerPitchInput(LookAxisVector.Y);
+		}
+	}
+
+	void AWarriorHeroCharacter::Input_AbilityInputPressed(FGameplayTag InInputTag)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[Input] Pressed Tag = %s"), *InInputTag.ToString());
+
+		WarriorAbilitySystemComponent->OnAbilityInputPressed(InInputTag);
+	}
+
+	void AWarriorHeroCharacter::Input_AbilityInputReleased(FGameplayTag InInputTag)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[Input] Released Tag = %s"), *InInputTag.ToString());
+		WarriorAbilitySystemComponent->OnAbilityInputReleased(InInputTag);
+	}
+
+
+
+	void AWarriorHeroCharacter::ApplyAppearanceFromPlayerState()
+	{
+		if (AWarriorPlayerState* WarriorPS = GetPlayerState<AWarriorPlayerState>())
+		{
+			ApplyCharacterAppearance(WarriorPS->GetCharacterAppearance());
+		}
+	}
+
+	void AWarriorHeroCharacter::ApplyCharacterAppearance(const FWarriorCharacterAppearance& InAppearance)
+	{
+		if (!InAppearance.IsValid())
+		{
+			return;
+		}
+
+		if (USkeletalMeshComponent* MeshComp = GetMesh())
+		{
+			MeshComp->SetSkeletalMesh(InAppearance.SkeletalMesh);
+			if (InAppearance.AnimClass)
+			{
+				MeshComp->SetAnimInstanceClass(InAppearance.AnimClass);
+			}
+		}
+	}
+
+	 void AWarriorHeroCharacter::OnRep_PlayerState()
+	{
+		Super::OnRep_PlayerState();
+
+		// å®¢æˆ·ç«¯åœ¨ PlayerState å¤åˆ¶åŽåˆå§‹åŒ– ASC
+		// èƒ½åŠ›ä¼šé€šè¿‡ Mixed å¤åˆ¶æ¨¡å¼è‡ªåŠ¨ä»ŽæœåŠ¡å™¨å¤åˆ¶åˆ°å®¢æˆ·ç«¯
+		if (WarriorAbilitySystemComponent)
+		{
+			WarriorAbilitySystemComponent->InitAbilityActorInfo(this, this);
+	
+			ResetForRespawn();
+			ApplyAppearanceFromPlayerState();
 		}
 	}

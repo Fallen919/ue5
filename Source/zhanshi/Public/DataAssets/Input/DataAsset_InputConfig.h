@@ -10,7 +10,7 @@
 class UInputAction;
 class UInputMappingContext;
 
-// ÊäÈë¶¯×÷ÅäÖÃ½á¹¹Ìå - ¹ØÁªÊäÈë±êÇ©ºÍ¾ßÌåµÄÊäÈë¶¯×÷
+// è¾“å…¥åŠ¨ä½œé…ç½®ç»“æ„ä½“ - å°†è¾“å…¥æ ‡ç­¾ä¸å…·ä½“è¾“å…¥åŠ¨ä½œç»‘å®š
 USTRUCT(BlueprintType)
 struct FWarriorInputActionConfig
 {
@@ -18,10 +18,16 @@ struct FWarriorInputActionConfig
 
 public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, meta = (Categories = "InputTag"))
-	FGameplayTag InputTag; // ÊäÈë±êÇ©
+	FGameplayTag InputTag; // è¾“å…¥æ ‡ç­¾
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	UInputAction* InputAction; // ¶ÔÓ¦µÄÊäÈë¶¯×÷×ÊÔ´
+	UInputAction* InputAction; // å¯¹åº”çš„è¾“å…¥åŠ¨ä½œèµ„æº
+
+	bool IsValid()const
+	{
+		return InputTag.IsValid() && InputAction;
+	}
+
 };
 
 /**
@@ -34,11 +40,16 @@ class ZHANSHI_API UDataAsset_InputConfig : public UDataAsset
 
 public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	UInputMappingContext* DefaultMappingContext; // Ä¬ÈÏÊäÈëÓ³ÉäÉÏÏÂÎÄ
+	UInputMappingContext* DefaultMappingContext; // é»˜è®¤è¾“å…¥æ˜ å°„ä¸Šä¸‹æ–‡
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, meta = (TitleProperty = "InputTag"))
-	TArray<FWarriorInputActionConfig> NativeInputActions; // ÊäÈë¶¯×÷ÅäÖÃÊı×é
+	TArray<FWarriorInputActionConfig> NativeInputActions; // è¾“å…¥åŠ¨ä½œé…ç½®æ•°ç»„
 
-	// ¸ù¾İÊäÈë±êÇ©²éÕÒ¶ÔÓ¦µÄÊäÈë¶¯×÷
+
+
+	// æ ¹æ®è¾“å…¥æ ‡ç­¾æŸ¥æ‰¾å¯¹åº”çš„è¾“å…¥åŠ¨ä½œ
 	UInputAction* FindNativeInputActionByTag(const FGameplayTag& InInputTag) const;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, meta = (TitleProperty = "InputTag"))
+	TArray<FWarriorInputActionConfig> AbilityInputActions; // xxï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 };

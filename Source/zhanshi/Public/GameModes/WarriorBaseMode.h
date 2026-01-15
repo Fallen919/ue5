@@ -4,7 +4,34 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/GameModeBase.h"
+#include "GameplayTagContainer.h"
+#include "UObject/ScriptDelegates.h"
+#include "WarriorTypes/WarriorStructTypes.h"
 #include "WarriorBaseMode.generated.h"
+
+class APlayerState;
+class AWarriorPlayerState;
+class APawn;
+
+USTRUCT(BlueprintType)
+struct FWarriorKillEvent
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly)
+	APlayerState* KillerPS = nullptr;
+
+	UPROPERTY(BlueprintReadOnly)
+	APlayerState* VictimPS = nullptr;
+
+	UPROPERTY(BlueprintReadOnly)
+	FGameplayTag DamageTag;
+
+	UPROPERTY(BlueprintReadOnly)
+	bool bFriendlyFire = true;
+};
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FWarriorKillSignature, const FWarriorKillEvent&, Event);
 
 /**
  * 
@@ -13,5 +40,37 @@ UCLASS()
 class ZHANSHI_API AWarriorBaseMode : public AGameModeBase
 {
 	GENERATED_BODY()
-	
+
+public:
+	AWarriorBaseMode();
+
+	UPROPERTY(BlueprintAssignable, Category = "Warrior|Match")
+	FWarriorKillSignature OnKill;
+
+	UPROPERTY(BlueprintAssignable, Category = "Warrior|Match")
+	FWarriorKillSignature OnDeath;
+
+	void HandleKillEvent(const FWarriorKillEvent& Event);
+
+	virtual void RestartPlayer(AController* NewPlayer) override;
+	virtual void PostLogin(APlayerController* NewPlayer) override;
+	virtual UClass* GetDefaultPawnClassForController_Implementation(AController* InController) override;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Warrior|Character")
+	TArray<FWarriorCharacterAppearance> AvailableAppearances;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Warrior|Character")
+	TArray<TSubclassOf<APawn>> AvailablePawnClasses;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Warrior|Respawn")
+	float RespawnDelay = 3.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Warrior|Score")
+	float KillScoreValue = 1.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Warrior|Score")
+	float DeathScorePenalty = 0.0f;
+
+protected:
+	void RequestRespawn(AController* Controller, float DelaySeconds);
 };
