@@ -1,0 +1,186 @@
+	// Fill out your copyright notice in the Description page of Project Settings.
+
+
+	#include "Characters/WarriorHeroCharacter.h"
+	#include"Components/CapsuleComponent.h"
+	#include"GameFramework/SpringArmComponent.h"
+	#include"Camera/CameraComponent.h"
+	#include"GameFramework/CharacterMovementComponent.h"
+	#include "EnhancedInputSubsystems.h"
+	#include "DataAssets/Input/DataAsset_InputConfig.h"
+	#include "Components/Input/WarriorInputComponent.h"
+    #include "AbilitySystem/WarriorAbilitySystemComponent.h"
+	#include"WarriorGameplayTags.h"
+    #include "DataAssets/StartDataBase/DataAsset_HeroStartUpData.h"
+
+    #include "Components/Combat/HeroCombatComponent.h"
+#include "PlayerStates/WarriorPlayerState.h"
+#include "Controllers/WarriorHeroController.h"
+#include "PauseMenu.h"
+
+	#include"WarriorDebugHelper.h"
+
+	AWarriorHeroCharacter::AWarriorHeroCharacter()
+	{
+		GetCapsuleComponent()->InitCapsuleSize(42.f, 96.f);
+		bUseControllerRotationPitch = false;
+		bUseControllerRotationYaw = false;
+		bUseControllerRotationRoll = false;
+
+		CameraBoom=CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
+		CameraBoom->SetupAttachment(GetRootComponent());
+		CameraBoom->TargetArmLength = 200.f;
+		CameraBoom->SocketOffset = FVector(0.f, 55.f, 65.f);
+		CameraBoom->bUsePawnControlRotation = true;
+
+
+		FollowCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FollowCamera"));
+		FollowCamera ->SetupAttachment(CameraBoom, USpringArmComponent::SocketName);
+		FollowCamera->bUsePawnControlRotation = false;
+
+
+		GetCharacterMovement()->bOrientRotationToMovement = true;
+		GetCharacterMovement()->RotationRate = FRotator(0.f, 500.f, 0.f);
+		GetCharacterMovement()->MaxWalkSpeed = 400.f;
+		GetCharacterMovement()->BrakingDecelerationWalking = 2000.f;
+
+		HeroCombatComponent=CreateDefaultSubobject<UHeroCombatComponent>(TEXT("HeroCombatComponent"));
+	}
+
+
+	void AWarriorHeroCharacter::PossessedBy(AController* NewController)
+	{
+		Super::PossessedBy(NewController);
+
+		WarriorAbilitySystemComponent->InitAbilityActorInfo(this, this);
+	
+		ResetForRespawn();
+		ApplyAppearanceFromPlayerState();
+
+		if (!CharacterStartUpData.IsNull())
+		{
+			if (UDataAsset_StartUpDataBase* LoadedData = CharacterStartUpData.LoadSynchronous())
+			{
+				LoadedData->GiveToAbilitySystemComponent(WarriorAbilitySystemComponent);
+			}
+		}
+	}
+
+
+	void AWarriorHeroCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
+	{
+		checkf(InputConfigDataAsset, TEXT("Forgot to assign avalid data asset as input config"));
+		ULocalPlayer* LocalPlayer=GetController<APlayerController>()->GetLocalPlayer();
+
+		UEnhancedInputLocalPlayerSubsystem* Subsystem=ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(LocalPlayer);
+		check(Subsystem);
+		Subsystem->AddMappingContext(InputConfigDataAsset->DefaultMappingContext, 0);
+
+		UWarriorInputComponent* WarriorInputComponent=CastChecked<UWarriorInputComponent>(PlayerInputComponent);
+		WarriorInputComponent->BindNativeInputAction(InputConfigDataAsset, WarriorGameplayTags::InputTag_Move, ETriggerEvent::Triggered, this, &ThisClass::Input_Move);
+		WarriorInputComponent->BindNativeInputAction(InputConfigDataAsset, WarriorGameplayTags::InputTag_Look, ETriggerEvent::Triggered, this, &ThisClass::Input_Look);	WarriorInputComponent->BindNativeInputAction(InputConfigDataAsset, WarriorGameplayTags::InputTag_Pause, ETriggerEvent::Started, this, &ThisClass::Input_Pause);	    
+		WarriorInputComponent->BindAbilityInputAction(InputConfigDataAsset, this, &ThisClass::Input_AbilityInputPressed, &ThisClass::Input_AbilityInputReleased);
+	}
+
+	void AWarriorHeroCharacter::BeginPlay()
+	{
+		Super::BeginPlay();
+	}
+
+	void AWarriorHeroCharacter::Input_Move(const FInputActionValue& InputActionValue)
+	{
+		const FVector2D MovementVector = InputActionValue.Get<FVector2D>();
+
+		if (!Controller)
+			return;
+
+		// ��ȡ����������ת�����������
+		const FRotator Rotation = Controller->GetControlRotation();
+
+		// ֻʹ��Yaw��ˮƽ��ת�����㷽��
+		const FRotator YawRotation(0.f, Rotation.Yaw, 0.f);
+
+		// ������������������ƶ�����
+		const FVector ForwardDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
+		const FVector RightDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
+
+		// Ӧ���ƶ�����
+		AddMovementInput(ForwardDirection, MovementVector.Y);
+		AddMovementInput(RightDirection, MovementVector.X);
+	}
+
+	void AWarriorHeroCharacter::Input_Look(const FInputActionValue& InputActionValue)
+	{
+		const FVector2D LookAxisVector= InputActionValue.Get<FVector2D>();
+		if (LookAxisVector.X != 0.f) {
+			AddControllerYawInput(LookAxisVector.X);
+		}
+		if (LookAxisVector.Y != 0.f) {
+			AddControllerPitchInput(LookAxisVector.Y);
+		}
+	}
+
+	void AWarriorHeroCharacter::Input_Pause(const FInputActionValue& InputActionValue)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Pause Input Triggered!"));
+		
+		if (AWarriorHeroController* PC = Cast<AWarriorHeroController>(GetController()))
+		{
+			PC->ShowPauseMenu();
+		}
+	}
+
+	void AWarriorHeroCharacter::Input_AbilityInputPressed(FGameplayTag InInputTag)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[Input] Pressed Tag = %s"), *InInputTag.ToString());
+
+		WarriorAbilitySystemComponent->OnAbilityInputPressed(InInputTag);
+	}
+
+	void AWarriorHeroCharacter::Input_AbilityInputReleased(FGameplayTag InInputTag)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[Input] Released Tag = %s"), *InInputTag.ToString());
+		WarriorAbilitySystemComponent->OnAbilityInputReleased(InInputTag);
+	}
+
+
+
+	void AWarriorHeroCharacter::ApplyAppearanceFromPlayerState()
+	{
+		if (AWarriorPlayerState* WarriorPS = GetPlayerState<AWarriorPlayerState>())
+		{
+			ApplyCharacterAppearance(WarriorPS->GetCharacterAppearance());
+		}
+	}
+
+	void AWarriorHeroCharacter::ApplyCharacterAppearance(const FWarriorCharacterAppearance& InAppearance)
+	{
+		if (!InAppearance.IsValid())
+		{
+			return;
+		}
+
+		if (USkeletalMeshComponent* MeshComp = GetMesh())
+		{
+			MeshComp->SetSkeletalMesh(InAppearance.SkeletalMesh);
+			if (InAppearance.AnimClass)
+			{
+				MeshComp->SetAnimInstanceClass(InAppearance.AnimClass);
+			}
+		}
+	}
+
+	 void AWarriorHeroCharacter::OnRep_PlayerState()
+	{
+		Super::OnRep_PlayerState();
+
+		// 客户端在 PlayerState 复制后初始化 ASC
+		// 能力会通过 Mixed 复制模式自动从服务器复制到客户端
+		if (WarriorAbilitySystemComponent)
+		{
+			WarriorAbilitySystemComponent->InitAbilityActorInfo(this, this);
+	
+			ResetForRespawn();
+			ApplyAppearanceFromPlayerState();
+		}
+	}
